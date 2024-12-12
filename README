@@ -1,0 +1,10 @@
+# jux
+## Compare large file structures
+
+### Usage
+`jux` walk two file trees and reports whether their files match.
+The left and right root may have different names but underlying files are matched based on their file names.
+
+```
+jux left_root right_root
+```
