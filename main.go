@@ -2,54 +2,67 @@ package main
 
 import (
 	"bytes"
-	"errors"
+	"flag"
 	"fmt"
 	"io/fs"
 	"os"
 	"strings"
+
+	"github.com/nesselchen/jux/jux"
 )
 
-const usage = "usage: jux [file_root] [file_root]"
+func parse() (*jux.Args, error) {
+	limit := flag.Int("limit", 0, "Specify how many differences are tracked. Abort comparison after limit is surpassed.")
+	flag.Parse()
+	var left, right string
+	if rest := flag.Args(); len(rest) == 2 {
+		// ignore trailing slash from terminal autocompleter
+		left, _ = strings.CutSuffix(rest[0], "/")
+		right, _ = strings.CutSuffix(rest[1], "/")
+	}
+	args := &jux.Args{
+		Left:  left,
+		Right: right,
+		Limit: *limit,
+	}
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Println("ERR:", err)
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	if len(os.Args) != 3 {
-		return errors.New(usage)
-	}
-
-	lhs, rhs := os.Args[1], os.Args[2]
-
-	// ignore trailing slash from terminal autocompleter
-	lhs, _ = strings.CutSuffix(lhs, "/")
-	rhs, _ = strings.CutSuffix(rhs, "/")
-
-	leftInfo, err := os.Stat(lhs)
+	args, err := parse()
 	if err != nil {
+		flag.PrintDefaults()
 		return err
 	}
 
-	rightInfo, err := os.Stat(rhs)
+	leftInfo, err := os.Stat(args.Left)
 	if err != nil {
 		return err
 	}
-
+	rightInfo, err := os.Stat(args.Right)
+	if err != nil {
+		return err
+	}
 	if os.SameFile(leftInfo, rightInfo) {
-		fmt.Println("WRN: left and right tree point to the same file")
+		fmt.Println("Warning: left and right tree point to the same file")
 		return nil
 	}
 
-	leftFiles, err := fileMap(lhs)
+	leftFiles, err := fileMap(args.Left)
 	if err != nil {
 		return err
 	}
-
-	rightFiles, err := fileMap(rhs)
+	rightFiles, err := fileMap(args.Right)
 	if err != nil {
 		return err
 	}
@@ -66,10 +79,10 @@ func run() error {
 			delete(rightFiles, key)
 			continue
 		}
-		fmt.Printf("Only in %s: %s\n", lhs, key)
+		fmt.Printf("Only in %s: %s\n", args.Left, key)
 	}
 	for key := range rightFiles {
-		fmt.Printf("Only in %s: %s\n", rhs, key)
+		fmt.Printf("Only in %s: %s\n", args.Right, key)
 	}
 	return nil
 }

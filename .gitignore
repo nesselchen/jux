@@ -1,5 +1,5 @@
 .air.toml
 bin/
-
+repo.github-issues
 .vscode/
 .DS_Store
